@@ -18,7 +18,11 @@
     "commands": [
       {
         "command": "extension.selectTable",
-        "title": "Select Table"
+        "title": "TD: Select Table"
+      },
+      {
+        "command": "extension.excuteQuery",
+        "title": "TD: Excute Query"
       }
     ]
   },
@@ -30,13 +34,15 @@
     "test": "npm run compile && node ./node_modules/vscode/bin/test"
   },
   "devDependencies": {
-    "typescript": "^3.1.4",
-    "vscode": "^1.1.25",
-    "tslint": "^5.8.0",
+    "@types/mocha": "^2.2.42",
     "@types/node": "^8.10.25",
-    "@types/mocha": "^2.2.42"
+    "ts-node": "^7.0.1",
+    "tslint": "^5.8.0",
+    "typescript": "^3.1.4",
+    "vscode": "^1.1.25"
   },
   "dependencies": {
+    "delay": "^4.1.0",
     "td": "^0.3.1"
   }
 }

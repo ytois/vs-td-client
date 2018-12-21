@@ -60,9 +60,20 @@ export default class Controller {
       });
   }
 
+  excuteQuery() {
+    const query = 'SELECT host, path, referer FROM www_access LIMIT 100';
+    this.td
+      .queryResult('hive', 'sample_datasets', query, {})
+      .then((res: string) => {
+        vscode.window.activeTextEditor.insertSnippet(
+          new vscode.SnippetString(res)
+        );
+      });
+  }
+
   activate() {
     const self = this;
-    const commands = ['selectTable'];
+    const commands = ['selectTable', 'excuteQuery'];
     commands.forEach(command => {
       self.registerCommand(command);
       self.event.on(command, () => self[command]());
