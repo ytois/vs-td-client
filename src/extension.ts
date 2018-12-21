@@ -1,15 +1,16 @@
 'use strict';
 
 import * as vscode from 'vscode';
+import Controller from './controller';
+import View from './view';
 
 export function activate(context: vscode.ExtensionContext) {
-    console.log('Congratulations, your extension "vs-td-client" is now active!');
-    let disposable = vscode.commands.registerCommand('extension.sayHello', () => {
-        vscode.window.showInformationMessage('Hello World!');
-    });
+  console.log('Congratulations, your extension "vs-td-client" is now active!');
 
-    context.subscriptions.push(disposable);
+  const view = new View();
+  const controller = new Controller(context, view);
+  context.subscriptions.push(controller);
+  controller.activate();
 }
 
-export function deactivate() {
-}
+export function deactivate() {}
