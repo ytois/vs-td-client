@@ -2,6 +2,10 @@ import * as vscode from 'vscode';
 import * as events from 'events';
 import View from './view';
 import TdClient from './tdclient';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as moment from 'moment';
+import { setFlagsFromString } from 'v8';
 
 export default class Controller {
   private extensionContext: vscode.ExtensionContext;
@@ -67,29 +71,65 @@ export default class Controller {
     return query;
   }
 
-  private excuteQuery(queryType: string): void {
-    const self = this;
+  private excuteQuery(queryType: string): Promise<string> | undefined {
     const query: string | undefined = this.getQueryText();
     if (!query) {
       return;
     }
 
     this.view.showStatusMessage('query running...');
-    this.td
-      .queryResult(queryType, 'sample_datasets', query, {})
-      .then((res: string) => {
-        self.view.createNewEditor(res, 'csv');
+    return this.td.queryResult(queryType, 'sample_datasets', query, {});
+  }
+
+  private saveFile(path: string, data: string): void {
+    fs.writeFile(path, data, (err: Error) => {});
+  }
+
+  private runQuery(queryType: string): void {
+    const self = this;
+    this.excuteQuery(queryType).then((res: string) => {
+      self.view.createNewEditor(res, 'csv');
+    });
+  }
+
+  private saveQueryResult(queryType: string): void {
+    const self = this;
+    const defaultPath = this.defaultPath();
+
+    // TODO: cancel process
+    this.view.showInputBox(defaultPath).then((path: string) => {
+      self.excuteQuery(queryType).then((res: string) => {
+        self.saveFile(path, res);
       });
+    });
+  }
+
+  private defaultPath(): string {
+    const home =
+      process.env[process.platform === 'win32' ? 'USERPROFILE' : 'HOME'];
+    const rootPath = vscode.workspace.rootPath;
+    const saveDir = rootPath || home || '';
+    const time = moment().format('YYYYMMDDHHmmss');
+    return path.join(saveDir, `query_result_${time}.csv`);
   }
 
   activate() {
     const self = this;
+
     self.registerCommand('selectTable');
     self.event.on('selectTable', () => self.selectTable());
+
     self.registerCommand('runHiveQuery');
-    self.event.on('runHiveQuery', () => self.excuteQuery('hive'));
+    self.event.on('runHiveQuery', () => self.runQuery('hive'));
     self.registerCommand('runPrestoQuery');
-    self.event.on('runPrestoQuery', () => self.excuteQuery('presto'));
+    self.event.on('runPrestoQuery', () => self.runQuery('presto'));
+
+    self.registerCommand('saveHiveQueryResult');
+    self.event.on('saveHiveQueryResult', () => self.saveQueryResult('hive'));
+    self.registerCommand('savePrestoQueryResult');
+    self.event.on('savePrestoQueryResult', () =>
+      self.saveQueryResult('presto')
+    );
   }
 
   deactivate() {}

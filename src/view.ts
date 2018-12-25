@@ -31,4 +31,8 @@ export default class View {
         vscode.window.showTextDocument(document);
       });
   }
+
+  showInputBox(value: string): Thenable<string | undefined> {
+    return vscode.window.showInputBox({ value: value });
+  }
 }

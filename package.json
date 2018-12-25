@@ -27,6 +27,14 @@
       {
         "command": "extension.runPrestoQuery",
         "title": "TD: Run Query (Presto)"
+      },
+      {
+        "command": "extension.saveHiveQueryResult",
+        "title": "TD: Save Query Result (Hive)"
+      },
+      {
+        "command": "extension.savePrestoQueryResult",
+        "title": "TD: Save Query Result (Presto)"
       }
     ]
   },
@@ -47,6 +55,7 @@
   },
   "dependencies": {
     "delay": "^4.1.0",
+    "moment": "^2.23.0",
     "td": "^0.3.1"
   }
 }
