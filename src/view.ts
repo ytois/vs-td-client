@@ -23,4 +23,12 @@ export default class View {
   showStatusMessage(message: string): void {
     vscode.window.setStatusBarMessage(message);
   }
+
+  createNewEditor(text: string, language: string): void {
+    vscode.workspace
+      .openTextDocument({ content: text, language: language })
+      .then(document => {
+        vscode.window.showTextDocument(document);
+      });
+  }
 }

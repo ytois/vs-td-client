@@ -21,8 +21,12 @@
         "title": "TD: Select Table"
       },
       {
-        "command": "extension.excuteQuery",
-        "title": "TD: Excute Query"
+        "command": "extension.runHiveQuery",
+        "title": "TD: Run Query (Hive)"
+      },
+      {
+        "command": "extension.runPrestoQuery",
+        "title": "TD: Run Query (Presto)"
       }
     ]
   },

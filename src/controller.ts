@@ -67,19 +67,18 @@ export default class Controller {
     return query;
   }
 
-  private excuteQuery(): void {
-    //const query: string = this.getQueryText();
-    const query: string =
-      'SELECT host, path, referer FROM www_access LIMIT 100';
+  private excuteQuery(queryType: string): void {
+    const self = this;
+    const query: string | undefined = this.getQueryText();
+    if (!query) {
+      return;
+    }
+
     this.view.showStatusMessage('query running...');
     this.td
-      .queryResult('hive', 'sample_datasets', query, {})
+      .queryResult(queryType, 'sample_datasets', query, {})
       .then((res: string) => {
-        const editor = vscode.window.activeTextEditor;
-        if (!editor) {
-          return;
-        }
-        editor.insertSnippet(new vscode.SnippetString(res));
+        self.view.createNewEditor(res, 'csv');
       });
   }
 
@@ -87,8 +86,10 @@ export default class Controller {
     const self = this;
     self.registerCommand('selectTable');
     self.event.on('selectTable', () => self.selectTable());
-    self.registerCommand('excuteQuery');
-    self.event.on('excuteQuery', () => self.excuteQuery());
+    self.registerCommand('runHiveQuery');
+    self.event.on('runHiveQuery', () => self.excuteQuery('hive'));
+    self.registerCommand('runPrestoQuery');
+    self.event.on('runPrestoQuery', () => self.excuteQuery('presto'));
   }
 
   deactivate() {}
