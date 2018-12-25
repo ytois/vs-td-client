@@ -32,18 +32,22 @@ export default class TdClient {
     });
   }
 
-  excuteQuery(
-    queryType: string,
-    database: string,
-    query: string,
-    option: object
-  ): Promise<Job> {
-    const self = this;
-    const method =
-      queryType === 'presto' ? self.client.prestoQuery : self.client.hiveQuery;
+  hiveQuery(database: string, query: string, option: object): Promise<Job> {
+    const client = this.client;
     return new Promise((resolve, reject) => {
-      // TODO: methodに代入して呼び出すとエラー
-      return self.client.hiveQuery(
+      return client.hiveQuery(database, query, option, (err: any, res: Job) => {
+        if (err) {
+          reject(err);
+        }
+        resolve(res);
+      });
+    });
+  }
+
+  prestoQuery(database: string, query: string, option: object): Promise<Job> {
+    const self = this;
+    return new Promise((resolve, reject) => {
+      return self.client.prestoQuery(
         database,
         query,
         option,
@@ -55,14 +59,6 @@ export default class TdClient {
         }
       );
     });
-  }
-
-  hiveQuery() {
-    return this.client.hiveQuery;
-  }
-
-  prestoQuery() {
-    return this.client.prestoQuery;
   }
 
   showJob(jobId: string | number): Promise<JobDetail> {
@@ -96,12 +92,8 @@ export default class TdClient {
     option: object,
     format: string = 'csv'
   ) {
-    let job = await this.excuteQuery(queryType, database, query, option).catch(
-      (err: any) => {
-        console.log(err);
-        return false;
-      }
-    );
+    const method = queryType === 'presto' ? this.prestoQuery : this.hiveQuery;
+    let job = await method.bind(this)(database, query, option);
 
     while (true) {
       const detail = await this.showJob(job.job_id);

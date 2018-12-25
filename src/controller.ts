@@ -54,30 +54,40 @@ export default class Controller {
         return this.view.showQuickPick(labels, {});
       })
       .then((select: any) => {
-        vscode.window.activeTextEditor.insertSnippet(
-          new vscode.SnippetString(select.label)
-        );
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) {
+          return;
+        }
+        editor.insertSnippet(new vscode.SnippetString(select.label));
       });
   }
 
-  excuteQuery() {
-    const query = 'SELECT host, path, referer FROM www_access LIMIT 100';
+  private getQueryText(): string | undefined {
+    let query = this.view.currentEditorText();
+    return query;
+  }
+
+  private excuteQuery(): void {
+    //const query: string = this.getQueryText();
+    const query: string =
+      'SELECT host, path, referer FROM www_access LIMIT 100';
     this.td
       .queryResult('hive', 'sample_datasets', query, {})
       .then((res: string) => {
-        vscode.window.activeTextEditor.insertSnippet(
-          new vscode.SnippetString(res)
-        );
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) {
+          return;
+        }
+        editor.insertSnippet(new vscode.SnippetString(res));
       });
   }
 
   activate() {
     const self = this;
-    const commands = ['selectTable', 'excuteQuery'];
-    commands.forEach(command => {
-      self.registerCommand(command);
-      self.event.on(command, () => self[command]());
-    });
+    self.registerCommand('selectTable');
+    self.event.on('selectTable', () => self.selectTable());
+    self.registerCommand('excuteQuery');
+    self.event.on('excuteQuery', () => self.excuteQuery());
   }
 
   deactivate() {}
