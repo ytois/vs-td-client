@@ -19,4 +19,8 @@ export default class View {
       return editor.document.getText();
     }
   }
+
+  showStatusMessage(message: string): void {
+    vscode.window.setStatusBarMessage(message);
+  }
 }

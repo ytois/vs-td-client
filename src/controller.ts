@@ -71,6 +71,7 @@ export default class Controller {
     //const query: string = this.getQueryText();
     const query: string =
       'SELECT host, path, referer FROM www_access LIMIT 100';
+    this.view.showStatusMessage('query running...');
     this.td
       .queryResult('hive', 'sample_datasets', query, {})
       .then((res: string) => {
