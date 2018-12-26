@@ -17,6 +17,10 @@
   "contributes": {
     "commands": [
       {
+        "command": "extension.selectDataset",
+        "title": "TD: Select Dataset"
+      },
+      {
         "command": "extension.selectTable",
         "title": "TD: Select Table"
       },

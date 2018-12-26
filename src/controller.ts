@@ -11,11 +11,13 @@ export default class Controller {
   private event: events.EventEmitter = new events.EventEmitter();
   private view: View;
   private td: TdClient;
+  private dataset: string | null;
 
   constructor(context: vscode.ExtensionContext, view: View) {
     this.extensionContext = context;
     this.view = view;
     this.td = new TdClient();
+    this.dataset = null;
   }
 
   get defaultPath(): string {
@@ -39,32 +41,49 @@ export default class Controller {
   private excuteQuery(queryType: string, query: string): Promise<string> {
     this.view.showStatusMessage('query running...');
 
-    // TODO: parse databsets name method
-    return this.td.queryResult(queryType, 'sample_datasets', query, {});
+    if (!this.dataset) {
+      this.view.showInformationMessage('dataset is not selected.');
+      throw Error('dataset is not selected');
+    }
+
+    return this.td.queryResult(queryType, this.dataset, query, {});
   }
 
   private saveFile(path: string, data: string): void {
     fs.writeFile(path, data, (err: Error) => {
       // TODO: error proccess
+      if (!err) {
+        this.view.showInformationMessage(`done. ${path}`);
+      }
     });
   }
 
   // ---- Commands ----
-  private selectTable(): void {
-    this.td
+  private selectDataset(): Promise<string> {
+    const self = this;
+    return this.td
       .listDatabases()
-      .then((databases: any) => {
-        return databases.map((db: any) => {
+      .then((datasets: any) => {
+        return datasets.map((db: any) => {
           return {
-            label: db.name
+            label: db.name,
+            description: self.dataset === db.name ? '[Current]' : null
           };
         });
       })
       .then((labels: any) => {
-        return this.view.showQuickPick(labels, {});
+        return self.view.showQuickPick(labels, {});
       })
       .then((select: any) => {
-        return this.td.listTables(select.label);
+        self.dataset = select.label;
+        return select.label;
+      });
+  }
+
+  private selectTable(): void {
+    this.selectDataset()
+      .then((datasetName: string) => {
+        return this.td.listTables(datasetName);
       })
       .then((tables: any) => {
         return tables.map((table: any) => {
@@ -86,6 +105,11 @@ export default class Controller {
         }
         editor.insertSnippet(new vscode.SnippetString(select.label));
       });
+  }
+
+  // TODO: show schema
+  private showTableSchema() {
+    return;
   }
 
   private runQuery(queryType: string): void {
@@ -119,14 +143,18 @@ export default class Controller {
       .then((savePath: string | undefined) => {
         if (!savePath) {
           this.view.showInformationMessage('save path is empty.');
+          return;
         } else {
           fs.access(path.dirname(savePath), fs.constants.W_OK, err => {
-            this.view.showInformationMessage(
-              `${path.dirname(savePath)} is not writable.`
-            );
+            if (err) {
+              this.view.showInformationMessage(
+                `${path.dirname(savePath)} is not writable.`
+              );
+              return;
+            }
           });
+          return savePath;
         }
-        return savePath;
       })
       .then((savePath: string | undefined) => {
         if (!savePath) {
@@ -141,6 +169,9 @@ export default class Controller {
 
   activate() {
     const self = this;
+
+    self.registerCommand('selectDataset');
+    self.event.on('selectDataset', () => self.selectDataset());
 
     self.registerCommand('selectTable');
     self.event.on('selectTable', () => self.selectTable());
