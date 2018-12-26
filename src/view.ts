@@ -12,16 +12,24 @@ export default class View {
     return vscode.window.showQuickPick(labels, options);
   }
 
-  currentEditorText(): string | undefined {
+  showInformationMessage(message: string): void {
+    vscode.window.showInformationMessage(message);
+  }
+
+  showStatusMessage(message: string): void {
+    vscode.window.setStatusBarMessage(message);
+  }
+
+  showInputBox(value: string): Thenable<string | undefined> {
+    return vscode.window.showInputBox({ value: value });
+  }
+
+  get currentEditorText(): string | undefined {
     const editor: vscode.TextEditor | undefined =
       vscode.window.activeTextEditor;
     if (editor) {
       return editor.document.getText();
     }
-  }
-
-  showStatusMessage(message: string): void {
-    vscode.window.setStatusBarMessage(message);
   }
 
   createNewEditor(text: string, language: string): void {
@@ -30,9 +38,5 @@ export default class View {
       .then(document => {
         vscode.window.showTextDocument(document);
       });
-  }
-
-  showInputBox(value: string): Thenable<string | undefined> {
-    return vscode.window.showInputBox({ value: value });
   }
 }

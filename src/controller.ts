@@ -5,7 +5,6 @@ import TdClient from './tdclient';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as moment from 'moment';
-import { setFlagsFromString } from 'v8';
 
 export default class Controller {
   private extensionContext: vscode.ExtensionContext;
@@ -19,6 +18,15 @@ export default class Controller {
     this.td = new TdClient();
   }
 
+  get defaultPath(): string {
+    const home =
+      process.env[process.platform === 'win32' ? 'USERPROFILE' : 'HOME'];
+    const rootPath = vscode.workspace.rootPath;
+    const saveDir = rootPath || home || '';
+    const time = moment().format('YYYYMMDDHHmmss');
+    return path.join(saveDir, `query_result_${time}.csv`);
+  }
+
   private registerCommand(command: string) {
     const self = this;
     this.extensionContext.subscriptions.push(
@@ -28,6 +36,20 @@ export default class Controller {
     );
   }
 
+  private excuteQuery(queryType: string, query: string): Promise<string> {
+    this.view.showStatusMessage('query running...');
+
+    // TODO: parse databsets name method
+    return this.td.queryResult(queryType, 'sample_datasets', query, {});
+  }
+
+  private saveFile(path: string, data: string): void {
+    fs.writeFile(path, data, (err: Error) => {
+      // TODO: error proccess
+    });
+  }
+
+  // ---- Commands ----
   private selectTable(): void {
     this.td
       .listDatabases()
@@ -66,52 +88,56 @@ export default class Controller {
       });
   }
 
-  private getQueryText(): string | undefined {
-    let query = this.view.currentEditorText();
-    return query;
-  }
+  private runQuery(queryType: string): void {
+    const self = this;
+    const query = this.view.currentEditorText;
 
-  private excuteQuery(queryType: string): Promise<string> | undefined {
-    const query: string | undefined = this.getQueryText();
     if (!query) {
+      this.view.showInformationMessage('query is empty.');
       return;
     }
 
-    this.view.showStatusMessage('query running...');
-    return this.td.queryResult(queryType, 'sample_datasets', query, {});
-  }
-
-  private saveFile(path: string, data: string): void {
-    fs.writeFile(path, data, (err: Error) => {});
-  }
-
-  private runQuery(queryType: string): void {
-    const self = this;
-    this.excuteQuery(queryType).then((res: string) => {
+    this.excuteQuery(queryType, query).then((res: string) => {
+      if (!res) {
+        return;
+      }
       self.view.createNewEditor(res, 'csv');
     });
   }
 
   private saveQueryResult(queryType: string): void {
     const self = this;
-    const defaultPath = this.defaultPath();
+    const query = this.view.currentEditorText;
 
-    // TODO: cancel process
-    this.view.showInputBox(defaultPath).then((path: string) => {
-      self.excuteQuery(queryType).then((res: string) => {
-        self.saveFile(path, res);
+    if (!query) {
+      this.view.showInformationMessage('query is empty.');
+      return;
+    }
+
+    this.view
+      .showInputBox(this.defaultPath)
+      .then((savePath: string | undefined) => {
+        if (!savePath) {
+          this.view.showInformationMessage('save path is empty.');
+        } else {
+          fs.access(path.dirname(savePath), fs.constants.W_OK, err => {
+            this.view.showInformationMessage(
+              `${path.dirname(savePath)} is not writable.`
+            );
+          });
+        }
+        return savePath;
+      })
+      .then((savePath: string | undefined) => {
+        if (!savePath) {
+          return;
+        }
+        self.excuteQuery(queryType, query).then((res: string) => {
+          self.saveFile(savePath, res);
+        });
       });
-    });
   }
-
-  private defaultPath(): string {
-    const home =
-      process.env[process.platform === 'win32' ? 'USERPROFILE' : 'HOME'];
-    const rootPath = vscode.workspace.rootPath;
-    const saveDir = rootPath || home || '';
-    const time = moment().format('YYYYMMDDHHmmss');
-    return path.join(saveDir, `query_result_${time}.csv`);
-  }
+  // ----------------
 
   activate() {
     const self = this;
