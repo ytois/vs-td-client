@@ -58,3 +58,8 @@ interface JobDetail {
   result_export_target_job_id: any | null;
   debug: any;
 }
+
+interface QuickPickLabels {
+  label: string;
+  description: string | null;
+}

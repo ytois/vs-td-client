@@ -39,6 +39,10 @@
       {
         "command": "extension.savePrestoQueryResult",
         "title": "TD: Save Query Result (Presto)"
+      },
+      {
+        "command": "extension.showJobs",
+        "title": "TD: Show Jobs"
       }
     ]
   },

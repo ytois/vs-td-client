@@ -27,7 +27,12 @@ export default class TdClient {
         if (err) {
           reject(err);
         }
-        resolve(res.tables);
+        resolve(
+          res.tables.map((table: any) => {
+            table.database = dbName;
+            return table;
+          })
+        );
       });
     });
   }
@@ -58,6 +63,18 @@ export default class TdClient {
           resolve(res);
         }
       );
+    });
+  }
+
+  listJobs(): Promise<any> {
+    const self = this;
+    return new Promise((resolve, reject) => {
+      return self.client.listJobs((err: any, res: any) => {
+        if (err) {
+          reject(err);
+        }
+        resolve(res.jobs);
+      });
     });
   }
 

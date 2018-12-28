@@ -20,6 +20,10 @@ export default class View {
     vscode.window.setStatusBarMessage(message);
   }
 
+  showErrorMessage(message: string): void {
+    vscode.window.showErrorMessage(message);
+  }
+
   showInputBox(value: string): Thenable<string | undefined> {
     return vscode.window.showInputBox({ value: value });
   }
@@ -38,5 +42,22 @@ export default class View {
       .then(document => {
         vscode.window.showTextDocument(document);
       });
+  }
+
+  createWebView(
+    viewType: string,
+    title: string,
+    html: string | undefined
+  ): vscode.WebviewPanel {
+    let panel = vscode.window.createWebviewPanel(
+      viewType,
+      title,
+      vscode.ViewColumn.One,
+      {}
+    );
+    if (html) {
+      panel.webview.html = html;
+    }
+    return panel;
   }
 }

@@ -5,6 +5,8 @@ import TdClient from './tdclient';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as moment from 'moment';
+import { CommandCancel } from './errors';
+import { jobDetailTemplate } from './template';
 
 export default class Controller {
   private extensionContext: vscode.ExtensionContext;
@@ -43,7 +45,7 @@ export default class Controller {
 
     if (!this.dataset) {
       this.view.showInformationMessage('dataset is not selected.');
-      throw Error('dataset is not selected');
+      throw new Error('dataset is not selected');
     }
 
     return this.td.queryResult(queryType, this.dataset, query, {});
@@ -51,65 +53,118 @@ export default class Controller {
 
   private saveFile(path: string, data: string): void {
     fs.writeFile(path, data, (err: Error) => {
-      // TODO: error proccess
-      if (!err) {
+      if (err) {
+        throw err;
+      } else {
         this.view.showInformationMessage(`done. ${path}`);
       }
     });
   }
 
-  // ---- Commands ----
-  private selectDataset(): Promise<string> {
+  private isWritable(pathName: string | undefined): (boolean | Error)[] {
+    if (!pathName) {
+      return [false, new Error('path is empty.')];
+    } else {
+      fs.access(path.dirname(pathName), fs.constants.W_OK, err => {
+        if (err) {
+          return [false, new Error(`${pathName} is not writable.`)];
+        }
+      });
+    }
+    return [true];
+  }
+
+  private formatDatasetLabels(datasets: any[]): QuickPickLabels[] {
+    const self = this;
+    return datasets.map((dataset: any) => {
+      return {
+        label: dataset.name,
+        description: dataset.name === self.dataset ? '[Current]' : null
+      };
+    });
+  }
+
+  private formatTableLabels(tables: any[]): QuickPickLabels[] {
+    return tables.map((table: any) => {
+      return {
+        label: table.name,
+        description: `Count: ${table.count} Created: ${
+          table.created_at
+        } LastLog: ${table.last_log_timestamp}`,
+        database: table.database,
+        raw: table
+      };
+    });
+  }
+
+  private showDatabases(): Promise<any | undefined> {
     const self = this;
     return this.td
       .listDatabases()
-      .then((datasets: any) => {
-        return datasets.map((db: any) => {
-          return {
-            label: db.name,
-            description: self.dataset === db.name ? '[Current]' : null
-          };
-        });
-      })
-      .then((labels: any) => {
+      .then(datasets => self.formatDatasetLabels(datasets))
+      .then((labels: QuickPickLabels[]) => {
+        if (!labels) {
+          return;
+        }
         return self.view.showQuickPick(labels, {});
-      })
-      .then((select: any) => {
-        self.dataset = select.label;
-        return select.label;
       });
   }
 
+  private showTables(): Promise<any | undefined> {
+    const self = this;
+    return this.showDatabases()
+      .then((select: any) => {
+        return self.td.listTables(select.label);
+      })
+      .then(tables => self.formatTableLabels(tables))
+      .then((labels: QuickPickLabels[]) => {
+        return self.view.showQuickPick(labels, {});
+      });
+  }
+
+  // ---- Commands ----
+  private selectDataset(): Promise<string> {
+    const self = this;
+    return this.showDatabases().then((select: any) => {
+      self.dataset = select.label;
+      return select.label;
+    });
+  }
+
   private selectTable(): void {
-    this.selectDataset()
-      .then((datasetName: string) => {
-        return this.td.listTables(datasetName);
-      })
-      .then((tables: any) => {
-        return tables.map((table: any) => {
-          return {
-            label: table.name,
-            description: `Count: ${table.count} Created: ${
-              table.created_at
-            } LastLog: ${table.last_log_timestamp}`
-          };
-        });
-      })
-      .then((labels: any) => {
+    const self = this;
+    this.showTables()
+      .then((select: any) => {
+        const labels = [
+          // TODO: format text
+          { label: 'Show Schema', table: JSON.stringify(select.raw) },
+          { label: 'Insert Table Name', table: select.label },
+          {
+            label: 'Insert Table Name & Select Database',
+            table: select.label,
+            database: select.database
+          }
+        ];
         return this.view.showQuickPick(labels, {});
       })
       .then((select: any) => {
         const editor = vscode.window.activeTextEditor;
-        if (!editor) {
+        if (!editor || !select) {
           return;
         }
-        editor.insertSnippet(new vscode.SnippetString(select.label));
+        if (select.database) {
+          self.dataset = select.database;
+        }
+        editor.insertSnippet(new vscode.SnippetString(select.table));
+      })
+      .catch(error => {
+        switch (error) {
+          case CommandCancel:
+            self.view.showInformationMessage('command canceled');
+          default:
+            self.view.showErrorMessage(error.message);
+        }
       });
-  }
-
-  // TODO: show schema
-  private showTableSchema() {
-    return;
   }
 
   private runQuery(queryType: string): void {
@@ -141,30 +196,42 @@ export default class Controller {
     this.view
       .showInputBox(this.defaultPath)
       .then((savePath: string | undefined) => {
-        if (!savePath) {
-          this.view.showInformationMessage('save path is empty.');
-          return;
-        } else {
-          fs.access(path.dirname(savePath), fs.constants.W_OK, err => {
-            if (err) {
-              this.view.showInformationMessage(
-                `${path.dirname(savePath)} is not writable.`
-              );
-              return;
-            }
-          });
-          return savePath;
-        }
-      })
-      .then((savePath: string | undefined) => {
-        if (!savePath) {
-          return;
+        const [_, err] = self.isWritable(savePath);
+        if (err) {
+          throw err;
         }
         self.excuteQuery(queryType, query).then((res: string) => {
           self.saveFile(savePath, res);
         });
       });
   }
+
+  private showJobs(): void {
+    const self = this;
+    this.td
+      .listJobs()
+      .then((jobs: any) => {
+        return jobs.map((job: any) => {
+          return {
+            label: job.job_id,
+            description: `[${job.status}] ${job.start_at} ${job.query}`
+          };
+        });
+      })
+      .then((labels: QuickPickLabels[]) => {
+        return self.view.showQuickPick(labels, {});
+      })
+      .then((select: any) => {
+        self.td.showJob(select.label).then((res: any) => {
+          // TODO: 仮
+          const html = jobDetailTemplate(res);
+          self.view.createWebView('jobDetail', 'Job Detail', html);
+        });
+      });
+  }
+
+  // TODO
+  private killJob(): void {}
   // ----------------
 
   activate() {
@@ -187,6 +254,9 @@ export default class Controller {
     self.event.on('savePrestoQueryResult', () =>
       self.saveQueryResult('presto')
     );
+
+    self.registerCommand('showJobs');
+    self.event.on('showJobs', () => self.showJobs());
   }
 
   deactivate() {}
